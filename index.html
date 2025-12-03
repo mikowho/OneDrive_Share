@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OneDrive Gallery Pro</title>
+    <style>
+        /* ... 样式保持不变，直接复制上一版的 CSS 即可，为了节省篇幅省略 CSS 部分 ... */
+        :root { --primary: #0078d4; --sp: #03787c; --bg: #f3f4f6; --card-bg: #fff; }
+        body { font-family: "Segoe UI", sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1600px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h1 { margin: 0; color: var(--primary); font-size: 24px; }
+        .controls { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; gap: 15px; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
+        #search-box { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px; transition: 0.2s; }
+        #search-box:focus { border-color: var(--primary); }
+        .filters button { padding: 6px 15px; border: none; background: #f0f0f0; border-radius: 4px; cursor: pointer; font-weight: 500; color: #555; }
+        .filters button.active { background: var(--primary); color: white; }
+        .tag-area { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; min-height: 28px; }
+        .tag-chip { font-size: 12px; background: white; border: 1px solid #ddd; padding: 3px 12px; border-radius: 15px; cursor: pointer; transition: 0.2s; color: #666; }
+        .tag-chip:hover { border-color: var(--primary); color: var(--primary); }
+        .tag-chip.selected { border-color: var(--primary); background: var(--primary); color: white; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; position: relative; z-index: 1; }
+        .card { background: white; border-radius: 8px; position: relative; box-shadow: 0 2px 6px rgba(0,0,0,0.06); border: 1px solid transparent; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s; transform-origin: center center; z-index: 1; }
+        .card:hover { transform: scale(1.5); box-shadow: 0 20px 50px rgba(0,0,0,0.2); z-index: 100; border-color: #e1dfdd; }
+        .thumb-wrapper { height: 160px; background: #f8f8f8; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; border-radius: 8px 8px 0 0; }
+        .thumb-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+        .info { padding: 10px; border-top: 1px solid #f0f0f0; background: white; border-radius: 0 0 8px 8px; }
+        .title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #333; }
+        .tags-row { height: 18px; overflow: hidden; margin-top: 4px; display: flex; gap: 3px; }
+        .mini-tag { font-size: 9px; background: #f0f0f0; color: #666; padding: 1px 5px; border-radius: 3px; }
+        .type-badge { position: absolute; top: 8px; left: 8px; font-size: 10px; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; z-index: 5; pointer-events: none; }
+        .type-badge.sp { background: var(--sp); }
+        .type-badge.od { background: var(--primary); }
+        .del-btn { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.9); color: #d13438; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: 0.2s; z-index: 5; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .card:hover .del-btn { opacity: 1; }
+        .del-btn:hover { background: #d13438; color: white; }
+        .modal-mask { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(3px); }
+        #add-modal { z-index: 1000; }
+        #copy-modal { z-index: 1100; }
+        #setting-modal { z-index: 1200; }
+        .modal { background: white; width: 420px; padding: 25px; border-radius: 12px; box-shadow: 0 25px 50px rgba(0,0,0,0.3); position: relative; }
+        .modal-close { position: absolute; top: 15px; right: 15px; cursor: pointer; font-size: 20px; color: #999; }
+        .copy-options { display: flex; gap: 10px; margin-top: 20px; }
+        .copy-option-btn { flex: 1; padding: 15px; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; text-align: center; transition: 0.2s; background: #f9f9f9; }
+        .copy-option-btn:hover { background: #eef6fc; border-color: var(--primary); color: var(--primary); }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #555; }
+        .input-group input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        .btn { padding: 8px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; font-size: 14px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-outline { background: white; border: 1px solid #ddd; color: #555; }
+        .loading-box { display: none; background: #eef6fc; color: var(--primary); padding: 15px; border-radius: 5px; margin-top: 15px; text-align: center; font-size: 13px; border: 1px solid #c7e0f4; }
+        .toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 25px; border-radius: 30px; font-size: 14px; opacity: 0; transition: 0.3s; pointer-events: none; z-index: 2000; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .toast.show { opacity: 1; bottom: 50px; }
+        .help-text { font-size: 12px; color: #888; margin-top: 5px; line-height: 1.5; }
+        .help-tag { display: inline-block; background: #eee; padding: 2px 6px; border-radius: 4px; cursor: pointer; margin: 0 2px; border: 1px solid #ddd; transition: 0.2s; }
+        .help-tag:hover { background: #ddd; color: #000; }
+        #test-result { font-size: 13px; margin-top: 10px; font-weight: bold; display: none; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>☁️ OneDrive Gallery <span style="font-size:14px; color:#999; font-weight:normal; margin-left:10px;">Pro</span></h1>
+        <div class="header-actions">
+            <button class="btn btn-outline" id="setting-btn" style="padding: 8px 12px;">⚙️ 设置</button>
+            <button class="btn btn-primary" id="add-btn">＋ 添加新资源</button>
+        </div>
+    </header>
+
+    <div class="controls">
+        <div class="filters">
+            <button class="active" id="filter-all">全部来源</button>
+            <button id="filter-personal">个人版</button>
+            <button id="filter-business">SharePoint</button>
+        </div>
+        <input type="text" id="search-box" placeholder="🔍 搜索文件名、标签...">
+    </div>
+    
+    <div class="tag-area" id="tag-area"></div>
+    <div class="grid" id="shelf"></div>
+    <div style="text-align: center; margin-top: 30px; color: #999; font-size: 13px;" id="status-bar"></div>
+</div>
+
+<!-- 添加模态框 -->
+<div class="modal-mask" id="add-modal">
+    <div class="modal">
+        <span class="modal-close" id="close-add">&times;</span>
+        <h3 style="margin-top:0; color:var(--primary)">添加新图片</h3>
+        <div class="input-group">
+            <label>链接地址</label>
+            <input type="text" id="inp-url" placeholder="粘贴链接 (自动处理 Embed/跳转)">
+        </div>
+        <div class="input-group">
+            <label>标签 (可选)</label>
+            <input type="text" id="inp-tags" placeholder="空格分隔，如：风景">
+        </div>
+        <div id="loading-msg" class="loading-box">
+            <div style="margin-bottom:5px;">⏳ 正在处理...</div>
+            <div style="font-size:12px; opacity:0.8">正在解析链接并下载图片</div>
+        </div>
+        <div id="error-msg" style="display:none; margin-top:15px; color:red; font-size:12px; background:#fff0f0; padding:10px; border-radius:4px; border:1px solid #ffcdd2;"></div>
+        <div style="text-align: right; margin-top: 20px;">
+            <button class="btn btn-primary" id="save-btn">开始处理</button>
+        </div>
+    </div>
+</div>
+
+<!-- 设置模态框 -->
+<div class="modal-mask" id="setting-modal">
+    <div class="modal">
+        <span class="modal-close" id="close-setting">&times;</span>
+        <h3 style="margin-top:0;">网络设置</h3>
+        <div class="input-group">
+            <label>代理地址 (HTTP/SOCKS5)</label>
+            <input type="text" id="inp-proxy" placeholder="例如: http://127.0.0.1:7890">
+            <div class="help-text">
+                常用: <span class="help-tag" onclick="fillProxy('http://127.0.0.1:7890')">Clash (HTTP)</span> 
+                <span class="help-tag" onclick="fillProxy('socks5://127.0.0.1:7890')">Clash (SOCKS)</span>
+                <span class="help-tag" onclick="fillProxy('http://127.0.0.1:10809')">v2rayN</span>
+            </div>
+            <div id="test-result"></div>
+        </div>
+        <div style="text-align: right; margin-top: 20px;">
+            <button class="btn btn-outline" id="test-proxy-btn" style="margin-right:10px;">⚡ 测试连接</button>
+            <button class="btn btn-primary" id="save-config-btn">保存配置</button>
+        </div>
+    </div>
+</div>
+
+<!-- 复制模态框 -->
+<div class="modal-mask" id="copy-modal">
+    <div class="modal">
+        <span class="modal-close" id="close-copy">&times;</span>
+        <h3 style="margin-top:0;">添加成功</h3>
+        <p style="color:#666; font-size:13px; margin-bottom:20px;" id="copy-title-display"></p>
+        
+        <input type="hidden" id="hidden-url">
+        <input type="hidden" id="hidden-name">
+
+        <div class="copy-options">
+            <div class="copy-option-btn" id="copy-url-btn">
+                <span style="font-size:24px; display:block; margin-bottom:5px">🔗</span>
+                <span style="font-size:14px; font-weight:600">复制直链 URL</span>
+            </div>
+            <div class="copy-option-btn" id="copy-md-btn">
+                <span style="font-size:24px; display:block; margin-bottom:5px">📝</span>
+                <span style="font-size:14px; font-weight:600">复制 Markdown</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast">消息提示</div>
+
+<script>
+    let allData = [];
+    let displayData = [];
+    let filterType = 'all';
+    let filterTag = null;
+
+    window.onload = function() {
+        loadData();
+        document.getElementById('add-btn').onclick = openAddModal;
+        document.getElementById('setting-btn').onclick = openSettingModal;
+        document.getElementById('close-add').onclick = () => closeModal('add-modal');
+        document.getElementById('close-copy').onclick = () => closeModal('copy-modal');
+        document.getElementById('close-setting').onclick = () => closeModal('setting-modal');
+        document.getElementById('save-btn').onclick = processAndSave;
+        document.getElementById('save-config-btn').onclick = saveConfig;
+        document.getElementById('test-proxy-btn').onclick = testProxy;
+        document.getElementById('filter-all').onclick = () => setSource('all', document.getElementById('filter-all'));
+        document.getElementById('filter-personal').onclick = () => setSource('personal', document.getElementById('filter-personal'));
+        document.getElementById('filter-business').onclick = () => setSource('business', document.getElementById('filter-business'));
+        document.getElementById('search-box').oninput = refresh;
+        document.getElementById('copy-url-btn').onclick = () => doCopy('url');
+        document.getElementById('copy-md-btn').onclick = () => doCopy('md');
+    };
+
+    async function loadData() {
+        try {
+            const res = await fetch('/api/links');
+            allData = await res.json();
+            allData = allData.map(i => ({ ...i, tags: i.tags || [], thumb: i.thumb || i.url }));
+            renderTags();
+            refresh();
+        } catch(e) { console.error(e); }
+    }
+
+    async function openSettingModal() {
+        try {
+            const res = await fetch('/api/config');
+            const conf = await res.json();
+            document.getElementById('inp-proxy').value = conf.proxy || '';
+            document.getElementById('test-result').style.display = 'none';
+            document.getElementById('setting-modal').style.display = 'flex';
+        } catch(e) { alert("无法读取配置"); }
+    }
+
+    async function testProxy() {
+        const proxy = document.getElementById('inp-proxy').value.trim();
+        const resBox = document.getElementById('test-result');
+        const btn = document.getElementById('test-proxy-btn');
+        resBox.style.display = 'block'; resBox.innerHTML = '⏳ 测试中...'; resBox.className = ''; btn.disabled = true;
+        try {
+            const res = await fetch('/api/test_proxy', { method: 'POST', body: JSON.stringify({ proxy: proxy }) });
+            const result = await res.json();
+            if (result.status === 'success') { resBox.innerHTML = `✅ ${result.msg}`; resBox.className = 'success'; }
+            else { resBox.innerHTML = `❌ ${result.msg}`; resBox.className = 'error'; }
+        } catch(e) { resBox.innerHTML = '❌ 请求失败'; resBox.className = 'error'; } finally { btn.disabled = false; }
+    }
+
+    async function saveConfig() {
+        const proxy = document.getElementById('inp-proxy').value.trim();
+        await fetch('/api/config', { method: 'POST', body: JSON.stringify({ proxy: proxy }) });
+        closeModal('setting-modal');
+        showToast("设置已保存");
+    }
+
+    function fillProxy(val) { document.getElementById('inp-proxy').value = val; }
+
+    async function processAndSave() {
+        const urlInput = document.getElementById('inp-url');
+        const tagsInput = document.getElementById('inp-tags');
+        const errBox = document.getElementById('error-msg');
+        const btn = document.getElementById('save-btn');
+        const msg = document.getElementById('loading-msg');
+        
+        const url = urlInput.value.trim();
+        if (!url) return;
+
+        errBox.style.display = 'none'; btn.disabled = true; btn.innerText = "处理中..."; msg.style.display = 'block';
+
+        try {
+            // 不在前端做 encodeURIComponent，直接发给后端处理
+            const res = await fetch(`/api/process?url=${encodeURIComponent(url)}`);
+            const result = await res.json();
+
+            if (result.error) throw new Error(result.error);
+
+            const newItem = {
+                url: url, 
+                name: result.real_name, 
+                thumb: result.thumb_path,
+                tags: tagsInput.value.trim().split(' ').filter(t => t),
+                type: url.includes('sharepoint.com') ? 'business' : 'personal'
+            };
+
+            allData.unshift(newItem);
+            await fetch('/api/links', { method: 'POST', body: JSON.stringify(allData) });
+            
+            renderTags();
+            refresh();
+
+            urlInput.value = ''; tagsInput.value = '';
+            document.getElementById('add-modal').style.display = 'none';
+            openCopyModal(newItem.name, newItem.url);
+
+        } catch (e) {
+            errBox.style.display = 'block'; errBox.innerText = `失败: ${e.message}`;
+        } finally {
+            btn.disabled = false; btn.innerText = "开始处理"; msg.style.display = 'none';
+        }
+    }
+
+    function createCard(item) {
+        const div = document.createElement('div'); div.className = 'card';
+        const badgeClass = item.type === 'business' ? 'sp' : 'od';
+        const badgeLabel = item.type === 'business' ? 'SP' : 'OD';
+        div.innerHTML = `<div class="type-badge ${badgeClass}">${badgeLabel}</div><div class="info"><div class="title"></div><div class="tags-row"></div></div>`;
+        div.querySelector('.title').textContent = item.name;
+
+        const delBtn = document.createElement('div'); delBtn.className = 'del-btn'; delBtn.innerHTML = '&times;';
+        delBtn.onclick = (e) => { e.stopPropagation(); del(item.url, item.name); };
+        div.appendChild(delBtn);
+
+        const thumbWrapper = document.createElement('div'); thumbWrapper.className = 'thumb-wrapper';
+        thumbWrapper.onclick = () => openCopyModal(item.name, item.url);
+        const img = document.createElement('img'); img.src = item.thumb + '?t=' + new Date().getTime(); img.loading = 'lazy';
+        thumbWrapper.appendChild(img);
+        div.insertBefore(thumbWrapper, div.querySelector('.info'));
+
+        const tagsContainer = div.querySelector('.tags-row');
+        item.tags.forEach(t => { const tagSpan = document.createElement('span'); tagSpan.className = 'mini-tag'; tagSpan.textContent = t; tagsContainer.appendChild(tagSpan); });
+        return div;
+    }
+
+    function renderGrid() {
+        const shelf = document.getElementById('shelf'); shelf.innerHTML = '';
+        displayData.forEach(item => shelf.appendChild(createCard(item)));
+        document.getElementById('status-bar').innerText = `共 ${displayData.length} 个资源`;
+    }
+
+    function openCopyModal(name, url) {
+        document.getElementById('copy-title-display').innerText = name;
+        document.getElementById('hidden-url').value = url;
+        document.getElementById('hidden-name').value = name;
+        document.getElementById('copy-modal').style.display = 'flex';
+    }
+
+    function doCopy(type) {
+        const url = document.getElementById('hidden-url').value;
+        const name = document.getElementById('hidden-name').value;
+        const text = type === 'url' ? url : `![${name}](${url})`;
+        navigator.clipboard.writeText(text).then(() => { showToast(type === 'url' ? "直链已复制" : "Markdown 已复制"); closeModal('copy-modal'); });
+    }
+
+    async function del(url, name) {
+        if(!confirm(`⚠️ 彻底删除 "${name}" ？`)) return;
+        try {
+            await fetch('/api/delete', { method: 'POST', body: JSON.stringify({ url: url }) });
+            allData = allData.filter(i => i.url !== url); renderTags(); refresh(); showToast("已删除");
+        } catch(e) { alert("删除失败"); }
+    }
+
+    function renderTags() {
+        const tags = new Set(); allData.forEach(i => i.tags.forEach(t => tags.add(t)));
+        const area = document.getElementById('tag-area'); area.innerHTML = '';
+        if (tags.size > 0) {
+            const label = document.createElement('span'); label.style.fontSize='12px'; label.style.color='#999'; label.style.paddingTop='6px'; label.innerText='标签筛选:'; area.appendChild(label);
+        }
+        tags.forEach(t => {
+            const span = document.createElement('span'); span.className = `tag-chip ${filterTag===t?'selected':''}`; span.innerText = t;
+            span.onclick = () => { filterTag = filterTag === t ? null : t; renderTags(); refresh(); }; area.appendChild(span);
+        });
+    }
+    function setSource(type, btn) {
+        filterType = type; document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active')); btn.classList.add('active'); refresh();
+    }
+    function refresh() {
+        const term = document.getElementById('search-box').value.toLowerCase();
+        displayData = allData.filter(item => {
+            const matchType = filterType === 'all' || item.type === filterType;
+            const matchTag = !filterTag || (item.tags && item.tags.includes(filterTag));
+            const matchText = item.name.toLowerCase().includes(term) || (item.tags && item.tags.some(t=>t.toLowerCase().includes(term)));
+            return matchType && matchTag && matchText;
+        });
+        renderGrid();
+    }
+    function showToast(msg) {
+        const t = document.getElementById('toast'); t.innerText = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000);
+    }
+    function openAddModal() { document.getElementById('error-msg').style.display = 'none'; document.getElementById('add-modal').style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+</script>
+</body>
+</html>
