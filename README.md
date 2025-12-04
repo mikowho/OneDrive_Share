@@ -41,7 +41,7 @@ pip install requests Pillow
 ```
 
 ### 3. 启动程序
-*   **方法 A**：直接双击运行项目目录下的 `启动.bat`（推荐）。
+*   **方法 A**：直接双击运行app.py。
 *   **方法 B**：在终端中运行 `python app.py`。
 
 启动成功后，浏览器会自动访问：`http://localhost:8000`
