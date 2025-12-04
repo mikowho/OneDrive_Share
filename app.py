@@ -13,6 +13,23 @@ from PIL import Image, ImageFile
 from io import BytesIO
 from urllib.parse import unquote, urlparse, parse_qs
 
+# ==========================================
+# 日志重定向 (防止无窗口模式报错)
+# ==========================================
+class DualLogger:
+    def __init__(self, filename="app_log.txt"):
+        self.log = open(filename, "a", encoding='utf-8', buffering=1)
+    def write(self, message):
+        try: self.log.write(message)
+        except: pass
+    def flush(self):
+        try: self.log.flush()
+        except: pass
+
+sys.stdout = DualLogger()
+sys.stderr = sys.stdout
+# ==========================================
+
 PORT = 8000
 DB_FILE = "db.json"
 CONFIG_FILE = "config.json"
@@ -20,7 +37,6 @@ THUMB_DIR = "thumbnails"
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 Image.MAX_IMAGE_PIXELS = None 
-sys.stdout.reconfigure(encoding='utf-8')
 requests.packages.urllib3.disable_warnings()
 
 if not os.path.exists(DB_FILE):
@@ -64,8 +80,7 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps(result).encode('utf-8'))
             except Exception:
-                error_msg = traceback.format_exc()
-                print(f"❌ 后台报错: {sys.exc_info()[1]}")
+                print(f"❌ 后台报错: {traceback.format_exc()}")
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(sys.exc_info()[1])}).encode('utf-8'))
@@ -263,17 +278,21 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             raise Exception(f"图片损坏: {e}")
 
-        # 【修复】这里把解析出来的 download_url 也返回给前端
+        # 【修复点】智能选择保存的链接
+        save_url = download_url if 'sharepoint.com' in url else url
+
         return {
             "real_name": filename, 
             "thumb_path": f"{THUMB_DIR}/{thumb_filename}",
-            "download_url": download_url
+            "download_url": save_url
         }
 
-print(f"✅ 服务已启动: http://localhost:{PORT}")
-socketserver.TCPServer.allow_reuse_address = True
-with socketserver.TCPServer(("", PORT), MyHandler) as httpd:
-    try: 
+try:
+    print(f"✅ 服务已启动: http://localhost:{PORT}")
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("", PORT), MyHandler) as httpd:
         webbrowser.open(f'http://localhost:{PORT}') 
         httpd.serve_forever()
-    except KeyboardInterrupt: pass
+except Exception as e:
+    print(f"❌ 致命错误: {traceback.format_exc()}")
+    time.sleep(5)
