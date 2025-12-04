@@ -243,7 +243,8 @@
             if (result.error) throw new Error(result.error);
 
             const newItem = {
-                url: url, 
+                // 【修复】 优先使用后端返回的直链
+                url: result.download_url || url, 
                 name: result.real_name, 
                 thumb: result.thumb_path,
                 tags: tagsInput.value.trim().split(' ').filter(t => t),
