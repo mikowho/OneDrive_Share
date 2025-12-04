@@ -8,7 +8,7 @@ import hashlib
 import traceback
 import time
 import requests
-import webbrowser  # <--- 【修改1】新增：导入浏览器控制模块
+import webbrowser
 from PIL import Image, ImageFile
 from io import BytesIO
 from urllib.parse import unquote, urlparse, parse_qs
@@ -263,13 +263,17 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             raise Exception(f"图片损坏: {e}")
 
-        return {"real_name": filename, "thumb_path": f"{THUMB_DIR}/{thumb_filename}"}
+        # 【修复】这里把解析出来的 download_url 也返回给前端
+        return {
+            "real_name": filename, 
+            "thumb_path": f"{THUMB_DIR}/{thumb_filename}",
+            "download_url": download_url
+        }
 
 print(f"✅ 服务已启动: http://localhost:{PORT}")
 socketserver.TCPServer.allow_reuse_address = True
 with socketserver.TCPServer(("", PORT), MyHandler) as httpd:
     try: 
-        # 【修改2】启动前自动打开浏览器
         webbrowser.open(f'http://localhost:{PORT}') 
         httpd.serve_forever()
     except KeyboardInterrupt: pass
